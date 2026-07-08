@@ -16,12 +16,13 @@ The model is well trained based on given dataset and MSE loss on predictions and
 Previous work has shown that residual MLPs often exhibit low-rank autoencoder-like behavior. Motivated by this observation, I assume that the encoder and decoder within a residual block become approximately symmetric. Under this assumption, the encoder weight matrix and the transpose of the decoder weight matrix should be similar.
 
 To quantify this property, a **hidden alignment** score is defined for each candidate input–output layer pair.
-For a candidate pair of weight matrices, the statistic 
+For a candidate pair of weight matrices, the statistic
+
 $$cos(Win[k,:],Wout[:,k])$$ 
 measures how well the (k)-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
 
 Given the sets of candidate input layers, $W_{\text{in}}$, and output layers, $W_{\text{out}}$, the alignment matrix $A \in \mathbb{R}^{N_{\text{in}} \times N_{\text{out}}}$ is computed, where 
-$$A_{ij} = \text{HiddenAlignment}\!\left(W_{\text{in}}^{(i)},W_{\text{out}}^{(j)}\right).$$
+$$A_{ij} = \text{HiddenAlignment}\left(W_{\text{in}}^{(i)},W_{\text{out}}^{(j)}\right).$$
 
 For each input layer, the output layer with the highest alignment score is selected, $j^* = \arg\max_j A_{ij}$, forming a matched input–output layer pair. These pairs are then converted into residual blocks by combining the corresponding metadata from the input and output layer lists.
 
@@ -49,15 +50,9 @@ $$f_i \approx f_{i+1}.$$
 Consequently, the similarity between blocks is expected to decay smoothly with increasing distance in the network. This behavior is consistent with the Neural ODE interpretation of residual networks.
 
 To quantify this property, a pairwise similarity matrix is computed using the residual updates produced by each block:
-$$
-S_{ij} = \mathbb{E}_x\left[
-\cos\!\left(h_i(x),\,h_j(x)\right)
-\right],
-$$
+$$S_{ij} = \mathbb{E}_x\left[\cos\!\left(h_i(x),\,h_j(x)\right)\right],$$
 where
-$$
-h_i(x_0) = B_i(x_0) - x_0
-$$ 
+$$h_i(x_0) = B_i(x_0) - x_0$$ 
 is the residual update of block $i$ evaluated on the raw input features $x_0$.
 
 The resulting similarity matrix reveals two distinctive outlier blocks. The first block exhibits uniformly low similarity to all other blocks:
