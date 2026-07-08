@@ -7,77 +7,81 @@ I break down solution into 3 parts - pairing linear layers to get blocks, preord
 1. maximize trajectory smoothness (greedy similarity),
 2. optimize function (adjacent swaps).
 
-# Pairing
+## Pairing Residual Blocks
 
-There are 97 layers. The last layer has dimension [48,1]. Input , output. 
+The model contains 97 linear layers. One of them is the final prediction layer with shape [48, 1], while the remaining 96 layers form the 48 residual blocks.
 
 The model is well trained based on given dataset and MSE loss on predictions and truths. So, residual connections create gradient coherence. 
 
-Each residual blocks behaves like a small encoder-decoder. It was shown that residual MLPs become close to low-rank autoencoders. I suggest, that blocks of original model converge toward this. In other words, encoder and decoder naturally become transposes and statistic $cos(Win[k,:],Wout[:,k])$ is literally measuring how close one hidden neuron is to this encoder–decoder symmetry. 
+Previous work has shown that residual MLPs often exhibit low-rank autoencoder-like behavior. Motivated by this observation, I assume that the encoder and decoder within a residual block become approximately symmetric. Under this assumption, the encoder weight matrix and the transpose of the decoder weight matrix should be similar.
 
-So, given two sets of blocks, Win and Wout, I first compute an alignment matrix $A∈RNin×Nout$, where each element
+To quantify this property, a **hidden alignment** score is defined for each candidate input–output layer pair.
+For a candidate pair of weight matrices, the statistic $$cos(Win[k,:],Wout[:,k])$$ measures how well the (k)-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
 
-$Aij=HiddenAlignment(Win(i),Wout(j))$
+Given the sets of candidate input layers, $W_{\text{in}}$, and output layers, $W_{\text{out}}$, the alignment matrix $A \in \mathbb{R}^{N_{\text{in}} \times N_{\text{out}}}$ is computed, where 
+$$
+A_{ij} = \operatorname{HiddenAlignment}\!\left(
+W_{\text{in}}^{(i)},
+W_{\text{out}}^{(j)}
+\right).
+$$
 
-measures the similarity between the hidden representations of the ii-th input block and the jj-th output block. For each input block, I identify the output block with the maximum alignment score,
+For each input layer, the output layer with the highest alignment score is selected, $j^* = \arg\max_j A_{ij}$, forming a matched input–output layer pair. These pairs are then converted into residual blocks by combining the corresponding metadata from the input and output layer lists.
 
-$j∗=arg⁡max⁡jAij$,
 
-and form the pair (i,j∗)(i,j∗). These matched pairs are then converted into paired residual blocks by retrieving the corresponding block metadata from the input and output lists.
 
-# Preordering
+## Initial Block Ordering
+! add about mse here! 
+Directly optimizing the reconstruction loss over all possible block permutations is computationally infeasible. Instead, the search is divided into two stages: first, an approximate ordering is recovered, and then it is refined through local optimization.
 
-Loss optimization is great, but there are a lot of combinations. So we need pre ordering and then easy swaps.
+A residual network can be interpreted as a discretization of a continuous dynamical system. Since each residual block performs the update
 
-Since
+$$x_{k+1}=x_k+f_k(x_k),$$
 
-$x_{k+1}=x_k+f_k(x_k)$
+the network approximates the ordinary differential equation
 
-a ResNet can be viewed as an Euler discretization of an ODE
 
-$\frac{dx}{dt}=v(x,t)$
+$$\frac{dx}{dt}=v(x,t),$$
+where each residual block represents one discretized vector field.
 
-Each residual block is one discretized vector field. 
+Under this interpretation, adjacent residual blocks correspond to nearby time steps and therefore should induce similar vector fields,
 
-If adjacent layers correspond to nearby times in the ODE, then
+$$f_i \approx f_{i+1}.$$
 
-$[f_i \approx f_{i+1}]$
 
-and cosine similarity should decay smoothly with distance. Residual layers approximate continuous dynamics.
+Consequently, the similarity between blocks is expected to decay smoothly with increasing distance in the network. This behavior is consistent with the Neural ODE interpretation of residual networks.
 
-That is exactly what Neural ODE theory predicts. So, I measure the similarity of the **vector fields** induced by each residual block.
-
-First, I calculate similarity matrix. (Are two layers producing updates in similar directions?)
-
+To quantify this property, a pairwise similarity matrix is computed using the residual updates produced by each block:
 $$
 S_{ij} = \mathbb{E}_x\left[
 \cos\!\left(h_i(x),\,h_j(x)\right)
-\right]
+\right],
 $$
-
 where
-
 $$
 h_i(x_0) = B_i(x_0) - x_0
-$$
+$$ 
+is the residual update of block $i$ evaluated on the raw input features $x_0$.
 
-is residual update. For each block I input raw feature vector x_0.
+The resulting similarity matrix reveals two distinctive outlier blocks. The first block exhibits uniformly low similarity to all other blocks:
 
-Analyzing similarity matrix there are 2 standing out blocks. First one is 
+pos: 30
+top idx:  [5, 2]
+top vals: [0.1072, 0.1046, 0.0940]
 
-`pos: 30, top idx: [5 2]; top vals: [0.10724244 0.10460617 0.09398133]`
+This block is hypothesized to be the final residual block, immediately preceding the prediction head. In well-trained ResNets, the representation just before the output layer is often highly specialized and therefore substantially different from the preceding hidden representations.
 
-It’s probably block before last layer, well trained ResNets tend to have layer before head is very odd wrt to others.
+The second outlier displays high similarity only to a small subset of blocks:
 
-Second one is 
+pos: 34
+top idx:  [21, 36]
+top vals: [0.8065, 0.7463, 0.6479]
+dist:     [-13, 2]
 
-`pos: 34, top idx: [21 36]; top vals: [0.80651313 0.7463321  0.647884  ]; dist: [-13   2]`
+Because the residual updates are evaluated only on the initial input $x_0$, rather than on the intermediate activations $x_k$, this behavior is consistent with the first residual block, whose update is naturally computed on the raw input distribution.
 
-Since I calculate update of k-th block only on x_0, not on x_k-1, It’s probably first block of the model. 
 
-So I have starting block and ending block. I perform straight forward greedy walk. I construct a pre-order traversal using a greedy nearest-neighbor strategy, where each subsequent block is selected as the most similar unvisited block according to the pairwise similarity matrix, beginning from a specified starting block.
-
-# Ordering
+## Ordering
 
 MSE Loss for prediction of real model and current ordering. I start with pre-ordering.
 
@@ -87,7 +91,7 @@ Local 2-opt optimization, but my objective is network MSE instead of path length
 
 Adjacent swaps to avoid 48! combinations.
 
-# Discussion
+## Discussion
 
 Preordering gives 0.9+ spearman correlation to original order. Moreover, h_i(x_0) doesn’t measure the true dynamics of the trained network.
 
