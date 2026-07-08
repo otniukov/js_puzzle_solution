@@ -57,9 +57,17 @@ $$f_i \approx f_{i+1}.$$
 Consequently, the similarity between blocks is expected to decay smoothly with increasing distance in the network. This behavior is consistent with the Neural ODE interpretation of residual networks.
 
 To quantify this property, a pairwise similarity matrix is computed using the residual updates produced by each block:
+
+
 $$S_{ij} = \mathbb{E}_x\left[\cos\!\left(h_i(x),\,h_j(x)\right)\right],$$
+
+
 where
-$$h_i(x_0) = B_i(x_0) - x_0$$ 
+
+
+$$h_i(x_0) = B_i(x_0) - x_0$$
+
+
 is the residual update of block $i$ evaluated on the raw input features $x_0$.
 
 The resulting similarity matrix reveals two distinctive outlier blocks. The first block exhibits uniformly low similarity to all other blocks:
