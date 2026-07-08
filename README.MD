@@ -24,11 +24,7 @@ measures how well the (k)-th hidden neuron satisfies this encoder–decoder symm
 
 Given the sets of candidate input layers, $W_{\text{in}}$, and output layers, $W_{\text{out}}$, the alignment matrix $A \in \mathbb{R}^{N_{\text{in}} \times N_{\text{out}}}$ is computed, where 
 
-
-
-
 $$A_{ij} = \text{HiddenAlignment}\left(W_{\text{in}}^{(i)},W_{\text{out}}^{(j)}\right).$$
-
 
 
 For each input layer, the output layer with the highest alignment score is selected, $j^* = \arg\max_j A_{ij}$, forming a matched input–output layer pair. These pairs are then converted into residual blocks by combining the corresponding metadata from the input and output layer lists.
@@ -47,26 +43,22 @@ the network approximates the ordinary differential equation
 
 
 $$\frac{dx}{dt}=v(x,t),$$
+
 where each residual block represents one discretized vector field.
 
 Under this interpretation, adjacent residual blocks correspond to nearby time steps and therefore should induce similar vector fields,
 
 $$f_i \approx f_{i+1}.$$
 
-
 Consequently, the similarity between blocks is expected to decay smoothly with increasing distance in the network. This behavior is consistent with the Neural ODE interpretation of residual networks.
 
 To quantify this property, a pairwise similarity matrix is computed using the residual updates produced by each block:
 
-
 $$S_{ij} = \mathbb{E}_x\left[\cos\!\left(h_i(x),\,h_j(x)\right)\right],$$
-
 
 where
 
-
 $$h_i(x_0) = B_i(x_0) - x_0$$
-
 
 is the residual update of block $i$ evaluated on the raw input features $x_0$.
 
