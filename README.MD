@@ -19,10 +19,17 @@ To quantify this property, a **hidden alignment** score is defined for each cand
 For a candidate pair of weight matrices, the statistic
 
 $$cos(Win[k,:],Wout[:,k])$$ 
+
 measures how well the (k)-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
 
 Given the sets of candidate input layers, $W_{\text{in}}$, and output layers, $W_{\text{out}}$, the alignment matrix $A \in \mathbb{R}^{N_{\text{in}} \times N_{\text{out}}}$ is computed, where 
+
+
+
+
 $$A_{ij} = \text{HiddenAlignment}\left(W_{\text{in}}^{(i)},W_{\text{out}}^{(j)}\right).$$
+
+
 
 For each input layer, the output layer with the highest alignment score is selected, $j^* = \arg\max_j A_{ij}$, forming a matched input–output layer pair. These pairs are then converted into residual blocks by combining the corresponding metadata from the input and output layer lists.
 
