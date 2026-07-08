@@ -16,15 +16,12 @@ The model is well trained based on given dataset and MSE loss on predictions and
 Previous work has shown that residual MLPs often exhibit low-rank autoencoder-like behavior. Motivated by this observation, I assume that the encoder and decoder within a residual block become approximately symmetric. Under this assumption, the encoder weight matrix and the transpose of the decoder weight matrix should be similar.
 
 To quantify this property, a **hidden alignment** score is defined for each candidate input–output layer pair.
-For a candidate pair of weight matrices, the statistic $$cos(Win[k,:],Wout[:,k])$$ measures how well the (k)-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
+For a candidate pair of weight matrices, the statistic 
+$$cos(Win[k,:],Wout[:,k])$$ 
+measures how well the (k)-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
 
 Given the sets of candidate input layers, $W_{\text{in}}$, and output layers, $W_{\text{out}}$, the alignment matrix $A \in \mathbb{R}^{N_{\text{in}} \times N_{\text{out}}}$ is computed, where 
-$$
-A_{ij} = \operatorname{HiddenAlignment}\!\left(
-W_{\text{in}}^{(i)},
-W_{\text{out}}^{(j)}
-\right).
-$$
+$$A_{ij} = \operatorname{HiddenAlignment}\!\left(W_{\text{in}}^{(i)},W_{\text{out}}^{(j)}\right).$$
 
 For each input layer, the output layer with the highest alignment score is selected, $j^* = \arg\max_j A_{ij}$, forming a matched input–output layer pair. These pairs are then converted into residual blocks by combining the corresponding metadata from the input and output layer lists.
 
