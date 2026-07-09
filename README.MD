@@ -1,6 +1,6 @@
 ## Introduction
 
-This repository contains a solution to the *Jane Street ML puzzle* [link].
+This repository contains a solution to the  [*Jane Street ML puzzle*](https://huggingface.co/spaces/jane-street/droppedaneuralnet).
 
 The objective is to recover the original ordering of the residual blocks in a trained neural network. The provided model consists of 48 residual blocks with identical hidden dimensions followed by a final prediction layer. For every layer, the weight matrices and bias vectors are available, together with a dataset containing input features, target values, and the model's predictions.
 
