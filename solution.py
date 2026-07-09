@@ -100,29 +100,29 @@ def hidden_alignment(Win, Wout):
 
 def make_pairs(win_list, wout_list):
 
-    align = torch.zeros(len(win_list), len(wout_list))
+    A = torch.zeros(len(win_list), len(wout_list))
 
     for i, Win in enumerate(win_list):
         for j, Wout in enumerate(wout_list):
-            align[i, j] = hidden_alignment(win_list[i]["weight"], wout_list[j]["weight"])
+            A[i, j] = hidden_alignment(win_list[i]["weight"], wout_list[j]["weight"])
 
-    #plt.imshow(align.numpy())
+    #plt.imshow(A.numpy())
     #plt.colorbar()
 
-    best_cols = align.argmax(axis=1)
+    best_cols = A.argmax(axis=1)
 
     for row, col in enumerate(best_cols):
-        print(f"Win {row:2d} -> Wout {col:2d}  score {align[row, col]}")
+        print(f"Win {row:2d} -> Wout {col:2d}  score {A[row, col]}")
 
     pairs = [(row, col.item()) for row, col in enumerate(best_cols)]
 
-    matched_scores = np.array([align[r, c] for r, c in pairs])
+    matched_scores = np.array([A[r, c] for r, c in pairs])
 
     print("mean matched:", matched_scores.mean())
     print("min matched :", matched_scores.min())
     print("max matched :", matched_scores.max())
 
-    print("global mean:", align.mean().numpy())
+    print("global mean:", A.mean().numpy())
     
     # make residual blocks
     paired_blocks = []
@@ -133,9 +133,9 @@ def make_pairs(win_list, wout_list):
 
 
 @torch.no_grad()
-def analyze_resnet_raw(pieces, paired_blocks, X, y_pred):
+def compute_res_upd_sim_mat(pieces, paired_blocks, X, y_pred):
     '''
-    Computing the residual-update similarity matrix
+    Computing the pairwise residual-update similarity matrix S_ij
     '''
     n_layers = len(paired_blocks)
 
@@ -275,8 +275,8 @@ def main():
     # load data
     X, y_pred = load_data(data_path)
 
-    # calculate blocks similarity
-    sim_matrix = analyze_resnet_raw(pieces, paired_blocks, X, y_pred)
+    # calculate the pairwise residual-update similarity matrix S_ij
+    sim_matrix = compute_res_upd_sim_mat(pieces, paired_blocks, X, y_pred)
 
     # pre-order, starting block index=21 with the highest similarity values
     start_pos = 21

@@ -1,11 +1,24 @@
-# Intro
+## Introduction
 
-The puzzle is to restore ordering of blocks of deep neural model. It consists of 48 residual block with same dimension size, last layer (fig1). For each layer we have weights and biases matrices. There are also provided sample of data with features, targets and the model’s predictions.
+This repository contains a solution to the *Jane Street ML puzzle* [link].
 
-I break down solution into 3 parts - pairing linear layers to get blocks, preordering, swap adjacent blocks. Last 2 parts could be formulated as geometry understanding and functional fixing. My implementation performs this in two stages:
+The objective is to recover the original ordering of the residual blocks in a trained neural network. The provided model consists of 48 residual blocks with identical hidden dimensions followed by a final prediction layer. For every layer, the weight matrices and bias vectors are available, together with a dataset containing input features, target values, and the model's predictions.
 
-1. maximize trajectory smoothness (greedy similarity),
-2. optimize function (adjacent swaps).
+The proposed solution exploits two complementary properties of well-trained residual networks. First, neighboring residual blocks approximate a smooth trajectory in representation space, allowing the global block order to be reconstructed using geometric similarity. Second, any remaining ordering errors can be corrected by directly optimizing the network's prediction error.
+
+The reconstruction proceeds in three steps:
+
+1. **Pair residual layers** to recover the original residual blocks.
+2. **Recover an initial ordering** using the smoothness of the induced vector fields.
+3. **Refine the ordering** through local optimization with adjacent block swaps.
+
+Conceptually, the algorithm consists of two optimization stages:
+
+1. **Geometric reconstruction**, which maximizes the smoothness of the recovered representation trajectory.
+2. **Functional refinement**, which minimizes the prediction error of the reconstructed network.
+
+Despite relying only on simple heuristics, this procedure is sufficient to recover the original block ordering exactly.
+
 
 ## Pairing Residual Blocks
 
@@ -32,8 +45,9 @@ For each input layer, the output layer with the highest alignment score is selec
 
 
 ## Initial Block Ordering
-! add about mse here! 
-Directly optimizing the reconstruction loss over all possible block permutations is computationally infeasible. Instead, the search is divided into two stages: first, an approximate ordering is recovered, and then it is refined through local optimization.
+Recovering the block ordering directly is a combinatorial optimization problem with $48!$ possible permutations. An exhaustive search is therefore infeasible.
+
+Instead, the reconstruction is divided into two stages. First, a geometry-based heuristic recovers an approximate ordering by exploiting the continuous dynamics of residual networks. This ordering is then refined through local optimization using the network prediction loss.
 
 A residual network can be interpreted as a discretization of a continuous dynamical system. Since each residual block performs the update
 
@@ -44,15 +58,13 @@ the network approximates the ordinary differential equation
 
 $$\frac{dx}{dt}=v(x,t),$$
 
-where each residual block represents one discretized vector field.
+where each residual block approximates the vector field at a particular time.
 
 Under this interpretation, adjacent residual blocks correspond to nearby time steps and therefore should induce similar vector fields,
 
 $$f_i \approx f_{i+1}.$$
 
-Consequently, the similarity between blocks is expected to decay smoothly with increasing distance in the network. This behavior is consistent with the Neural ODE interpretation of residual networks.
-
-To quantify this property, a pairwise similarity matrix is computed using the residual updates produced by each block:
+To quantify this property, a **pairwise similarity matrix** is computed using the residual updates produced by each block:
 
 $$S_{ij} = \mathbb{E}_x\left[\cos\!\left(h_i(x),\,h_j(x)\right)\right],$$
 
@@ -60,7 +72,7 @@ where
 
 $$h_i(x_0) = B_i(x_0) - x_0$$
 
-is the residual update of block $i$ evaluated on the raw input features $x_0$.
+is the residual update of block $i$ evaluated on the raw input features $x_0$, rather than on the intermediate activations encountered during a forward pass.
 
 The resulting similarity matrix reveals two distinctive outlier blocks. The first block exhibits uniformly low similarity to all other blocks:
 
@@ -77,21 +89,32 @@ top idx:  [21, 36]
 top vals: [0.8065, 0.7463, 0.6479]
 dist:     [-13, 2]
 
-Because the residual updates are evaluated only on the initial input $x_0$, rather than on the intermediate activations $x_k$, this behavior is consistent with the first residual block, whose update is naturally computed on the raw input distribution.
+Because the residual updates are evaluated only on the initial input $x_0$, rather than on the intermediate activations $x_k$, this behavior is consistent with the first residual block, whose update is naturally computed on the raw input distribution. 
+These observations provide plausible candidates for the first and last residual blocks. Starting from the estimated first block, an initial ordering is constructed using a 
+greedy nearest-neighbor traversal, where each subsequent block is chosen as the most similar unvisited block according to the similarity matrix.
 
 
-## Ordering
+## Ordering Refinement
 
-MSE Loss for prediction of real model and current ordering. I start with pre-ordering.
+The greedy reconstruction provides a good initial ordering, but it is not exact. 
+For a candidate ordering, the objective is the mean squared error $MSE$ between the predictions of the reconstructed model and the predictions provided with the puzzle. Starting from the greedy pre-ordering, the optimization seeks the permutation that minimizes this loss.
 
-I use Traveling Salesman heuristics to get final ordering with zero Loss.
+The optimization is motivated by the *Neural ODE* interpretation introduced in the previous section. Since neighboring residual blocks approximate nearby vector fields, the greedy pre-ordering is expected to recover the correct global trajectory, leaving only a small number of local ordering errors. Consequently, only **adjacent block** swaps are considered during optimization. This dramatically reduces the search space while remaining sufficient to correct the remaining inconsistencies.
 
-Local 2-opt optimization, but my objective is network MSE instead of path length.
+The optimization itself is inspired by local-improvement heuristics for the Traveling Salesman Problem. During each iteration, every adjacent pair of blocks is swapped in turn, and the resulting $MSE$ is evaluated. A swap is accepted if it strictly decreases the loss; otherwise, it is rejected. After completing a forward sweep through the ordering, the same procedure is repeated in the reverse direction. The process terminates when an entire iteration produces no improving swaps or when the maximum number of iterations is reached.
 
-Adjacent swaps to avoid 48! combinations.
+This optimization can be viewed as a hill-climbing procedure over the space of block permutations. Because the initialization already captures the global structure of the network, only a handful of local corrections are required to recover the exact ordering. In practice, this procedure consistently converges to the correct block sequence, yielding zero prediction MSE on the provided dataset.
 
 ## Discussion
 
-Preordering gives 0.9+ spearman correlation to original order. Moreover, h_i(x_0) doesn’t measure the true dynamics of the trained network.
+Although the final optimization relies on the network prediction loss, the geometric pre-ordering already recovers most of the original architecture. The initial ordering achieves a Spearman rank correlation above $0.9$ with the ground-truth block sequence, suggesting that the pairwise similarity matrix captures much of the underlying continuous dynamics.
 
-How ReLU changes encoder-decoder stability
+It is worth noting that the similarity metric is only an approximation of the true network dynamics. The residual update
+
+$$h_i(x_0) = B_i(x_0) - x_0$$
+
+is evaluated on the raw input features $x_0$, whereas the actual network applies the (i)-th residual block to the intermediate representation $x_{i-1}$. Consequently, the measured similarities do not exactly correspond to the vector fields traversed during inference. Despite this simplification, the approximation is sufficiently informative to recover an ordering that is already very close to the original.
+
+Another interesting observation is the robustness of the pairing stage. The hidden-alignment score assumes an approximate encoder–decoder symmetry within each residual block, even though the network contains *ReLU* nonlinearities. In principle, *ReLU* could break this symmetry by activating different subsets of neurons for different inputs. Nevertheless, the learned weights appear to preserve enough of the underlying linear structure for the alignment metric to remain highly discriminative.
+
+These observations suggest that the geometric organization of well-trained residual networks is considerably more structured than might be expected. Exploiting this structure makes it possible to recover the original block ordering with only simple greedy heuristics followed by local optimization.
