@@ -33,7 +33,7 @@ For a candidate pair of weight matrices, the statistic
 
 $$cos(W_{\text{in}}[k,:],W_{\text{out}}[:,k])$$ 
 
-measures how well the (k)-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
+measures how well the $k$-th hidden neuron satisfies this encoder–decoder symmetry. Aggregating these similarities over all hidden neurons yields a single alignment score for the layer pair. 
 
 Given the sets of candidate input layers, $W_{\text{in}}$, and output layers, $W_{\text{out}}$, the alignment matrix $A \in \mathbb{R}^{N_{\text{in}} \times N_{\text{out}}}$ is computed, where 
 
@@ -55,18 +55,15 @@ $$x_{k+1}=x_k+f_k(x_k),$$
 
 the network approximates the ordinary differential equation
 
-
 $$\frac{dx}{dt}=v(x,t),$$
 
 where each residual block approximates the vector field at a particular time.
 
-Under this interpretation, adjacent residual blocks correspond to nearby time steps and therefore should induce similar residual updates,
-
-$$f_i \approx f_{i+1}.$$
+Under this interpretation, adjacent residual blocks correspond to nearby time steps and therefore should induce similar residual updates.
 
 To quantify this property, a **pairwise similarity matrix** is computed using the residual updates produced by each block:
 
-$$S_{ij} = \mathbb{E}_x\left[\cos\!\left(h_i(x),\,h_j(x)\right)\right],$$
+$$S_{ij} = \mathbb{E}_x\left[\cos\left(h_i(x),\,h_j(x)\right)\right],$$
 
 where
 
@@ -74,7 +71,7 @@ $$h_i(x_0) = B_i(x_0) - x_0$$
 
 is the residual update of block $i$ evaluated on the raw input features $x_0$.
 
-The similarity matrix reveals two distinctive outlier patterns.
+The similarity matrix $S_{ij}$ reveals two distinctive outlier patterns.
 
 The first pattern exhibits uniformly low similarity to all other blocks. Its highest similarity score is only $0.107$, substantially lower than typical values observed elsewhere in the matrix. This block is hypothesized to be the final residual block, immediately preceding the prediction head. In well-trained ResNets, the representation just before the output layer is often highly specialized and therefore substantially different from the preceding hidden representations.
 
@@ -91,7 +88,7 @@ greedy nearest-neighbor traversal, where each subsequent block is chosen as the 
 The greedy reconstruction provides a good initial ordering, but it is not exact. 
 For a candidate ordering, the objective is the mean squared error $MSE$ between the predictions of the reconstructed model and the predictions provided with the puzzle. Starting from the greedy pre-ordering, the optimization seeks the permutation that minimizes this loss.
 
-The optimization is motivated by the *Neural ODE* interpretation introduced in the previous section. Since neighboring residual blocks approximate nearby vector fields, the greedy pre-ordering is expected to recover the correct global trajectory, leaving only a small number of local ordering errors. Consequently, only **adjacent block** swaps are considered during optimization. This dramatically reduces the search space while remaining sufficient to correct the remaining inconsistencies.
+The optimization is motivated by the *Neural ODE* interpretation introduced in the previous section. Since neighboring residual blocks approximate nearby vector fields, the greedy pre-ordering is expected to recover the correct global trajectory, leaving only a small number of local ordering errors. Consequently, only **adjacent block swaps** are considered during optimization. This dramatically reduces the search space while remaining sufficient to correct the remaining inconsistencies.
 
 The optimization itself is inspired by local search heuristics commonly used for the Traveling Salesman Problem. During each iteration, every adjacent pair of blocks is swapped in turn, and the resulting $MSE$ is evaluated. A swap is accepted if it strictly decreases the loss; otherwise, it is rejected. After completing a forward sweep through the ordering, the same procedure is repeated in the reverse direction. The process terminates when an entire iteration produces no improving swaps or when the maximum number of iterations is reached.
 
@@ -101,11 +98,7 @@ This optimization can be viewed as a hill-climbing procedure over the space of b
 
 Although the final optimization relies on the network prediction loss, the geometric pre-ordering already recovers most of the original architecture. The initial ordering achieves a Spearman rank correlation above $0.9$ with the ground-truth block sequence, suggesting that the pairwise similarity matrix captures much of the underlying continuous dynamics.
 
-It is worth noting that the similarity metric is only an approximation of the true network dynamics. The residual update
-
-$$h_i(x_0) = B_i(x_0) - x_0$$
-
-is evaluated on the raw input features $x_0$, whereas the actual network applies the $i$-th residual block to the intermediate representation $x_{i-1}$. Consequently, the measured similarities do not exactly correspond to the vector fields traversed during inference. Despite this simplification, the approximation is sufficiently informative to recover an ordering that is already very close to the original.
+It is worth noting that the similarity metric is only an approximation of the true network dynamics. The residual update is evaluated on the raw input features $x_0$, whereas the actual network applies the $i$-th residual block to the interm ediate representation $x_{i-1}$. Consequently, the measured similarities do not exactly correspond to the vector fields traversed during inference. Despite this simplification, the approximation is sufficiently informative to recover an ordering that is already very close to the original.
 
 Another interesting observation is the robustness of the pairing stage. The hidden-alignment score assumes an approximate encoder–decoder symmetry within each residual block, even though the network contains *ReLU* nonlinearities. In principle, *ReLU* could break this symmetry by activating different subsets of neurons for different inputs. Nevertheless, the learned weights appear to preserve enough of the underlying linear structure for the alignment metric to remain highly discriminative.
 
