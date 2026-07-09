@@ -1,4 +1,4 @@
-## Introduction
+## Recovering Residual Blocks Order via Geometric Reconstruction and Local Optimization
 
 This repository contains a solution to the  [*Jane Street ML puzzle*](https://huggingface.co/spaces/jane-street/droppedaneuralnet).
 
@@ -22,7 +22,7 @@ Despite relying only on simple heuristics, this procedure is sufficient to recov
 
 ## Pairing Residual Blocks
 
-The model contains 97 linear layers. One of them is the final prediction layer with shape [48, 1], while the remaining 96 layers form the 48 residual blocks.
+The model contains 97 linear layers. One of them is the final prediction layer with shape $[48, 1]$, while the remaining 96 layers form the 48 residual blocks.
 
 The model is well trained based on given dataset and MSE loss on predictions and truths. So, residual connections create gradient coherence. 
 
@@ -74,23 +74,15 @@ $$h_i(x_0) = B_i(x_0) - x_0$$
 
 is the residual update of block $i$ evaluated on the raw input features $x_0$, rather than on the intermediate activations encountered during a forward pass.
 
-The resulting similarity matrix reveals two distinctive outlier blocks. The first block exhibits uniformly low similarity to all other blocks:
+The similarity matrix reveals two distinctive outlier patterns.
 
-pos: 30
-top idx:  [5, 2]
-top vals: [0.1072, 0.1046, 0.0940]
+The first pattern exhibits uniformly low similarity to all other blocks. Its highest similarity score is only $0.107$, substantially lower than typical values observed elsewhere in the matrix. This block is hypothesized to be the final residual block, immediately preceding the prediction head. In well-trained ResNets, the representation just before the output layer is often highly specialized and therefore substantially different from the preceding hidden representations.
 
-This block is hypothesized to be the final residual block, immediately preceding the prediction head. In well-trained ResNets, the representation just before the output layer is often highly specialized and therefore substantially different from the preceding hidden representations.
+The second pattern identifies two blocks $21$ and $34$ with strong mutual similarity of approximately $0.81$, making both plausible candidates for the beginning of the network. Since the similarity metric evaluates every block on the same raw input $x_0$, rather than on the intermediate activations encountered during a forward pass, the first residual block is expected to exhibit a distinctive similarity pattern.
 
-The second outlier displays high similarity only to a small subset of blocks:
+Because the first residual block has only one adjacent neighbor in the true ordering, it is expected to exhibit a weaker secondary similarity than an interior block. Block $21$ matches this pattern more closely than block $34$: its second-best similarity score is noticeably lower, indicating a weaker connection to the remainder of the similarity graph. Consequently, block $21$ is selected as the starting point for the greedy traversal.
 
-pos: 34
-top idx:  [21, 36]
-top vals: [0.8065, 0.7463, 0.6479]
-dist:     [-13, 2]
-
-Because the residual updates are evaluated only on the initial input $x_0$, rather than on the intermediate activations $x_k$, this behavior is consistent with the first residual block, whose update is naturally computed on the raw input distribution. 
-These observations provide plausible candidates for the first and last residual blocks. Starting from the estimated first block, an initial ordering is constructed using a 
+These observations identify plausible candidates for the first and last residual blocks. Starting from the estimated first block, an initial ordering is constructed using a 
 greedy nearest-neighbor traversal, where each subsequent block is chosen as the most similar unvisited block according to the similarity matrix.
 
 
