@@ -5,9 +5,8 @@ from torch import linalg as LA
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-import matplotlib.pyplot as plt
 import numpy as np
-
+from scipy import stats
 
 
 class Block(nn.Module):
@@ -106,8 +105,6 @@ def make_pairs(win_list, wout_list):
         for j, Wout in enumerate(wout_list):
             A[i, j] = hidden_alignment(win_list[i]["weight"], wout_list[j]["weight"])
 
-    #plt.imshow(A.numpy())
-    #plt.colorbar()
 
     best_cols = A.argmax(axis=1)
 
@@ -292,7 +289,12 @@ def main():
         answer.append(out_idx)
     answer.append(last_idx)
     print(f"True ordering: [{', '.join(str(x) for x in answer)}]")
-
+    
+    # spearman corr between the true ordering and the pre-order
+    map_ = {(x[0], x[1]):i for i, x in enumerate(final_order)}
+    fin_l = [i for i in range(len(final_order))]
+    pre_l = [map_[(x[0], x[1])] for x in pre_order]
+    print(f"Spearman corr between the true ordering and the pre-order: {stats.spearmanr(pre_l, fin_l).correlation}")
 
                                             
 if __name__ == "__main__":
